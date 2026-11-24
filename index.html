@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Packet Ghost</title>
+<style>
+  :root {
+    --bg: #07090c; --panel: rgba(8, 12, 15, 0.9); --line: #1f2e36; --txt: #b8c7cc; --dim: #5d7078;
+    --owned: #7fe7d4; --amber: #e9b44c; --hot: #ff5a3c; --white: #e8fff9;
+    --font: "Cascadia Mono", Consolas, "Courier New", monospace;
+  }
+  [hidden] { display: none !important; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); overflow: hidden; color: var(--txt); font: 12px/1.5 var(--font); }
+  canvas#game { position: fixed; inset: 0; width: 100vw; height: 100vh; display: block; cursor: crosshair; }
+  button { font: inherit; color: inherit; cursor: pointer; }
+
+  /* ---- top bar ---- */
+  #hud { position: fixed; top: 0; left: 0; right: 0; z-index: 3; display: grid; grid-template-columns: 210px minmax(240px, 520px) 1fr; gap: 20px;
+    padding: 10px 16px; pointer-events: none; align-items: start; }
+  .brand { color: var(--white); letter-spacing: 3px; font-size: 13px; font-weight: bold; }
+  .contract { color: var(--dim); margin-top: 2px; }
+  .trace-label { display: flex; justify-content: space-between; letter-spacing: 2px; color: var(--dim); font-size: 11px; }
+  .trace-label b { color: var(--white); font-size: 14px; letter-spacing: 0; }
+  .bar { position: relative; height: 10px; border: 1px solid var(--line); background: #0a1014; margin-top: 3px; }
+  #tracefill { height: 100%; width: 0; background: var(--owned); transition: background 0.3s; }
+  #tracefill.warn { background: var(--amber); }
+  #tracefill.crit { background: var(--hot); animation: pulse 0.6s infinite alternate; }
+  .bar .tick { position: absolute; top: -3px; bottom: -3px; width: 1px; background: var(--dim); }
+  @keyframes pulse { from { opacity: 0.65; } to { opacity: 1; } }
+  .banner { min-height: 16px; margin-top: 5px; letter-spacing: 1px; font-size: 11px; }
+  .banner.lock { color: var(--hot); animation: pulse 0.5s infinite alternate; }
+  .banner.dark { color: var(--owned); }
+  .hud-right { display: flex; justify-content: flex-end; }
+  .stats { display: flex; flex-wrap: wrap; gap: 5px; justify-content: flex-end; pointer-events: none; }
+  .chip { padding: 2px 8px; border: 1px solid var(--line); background: var(--panel); color: var(--dim); font-size: 11px; white-space: nowrap; }
+  .chip.ok { color: var(--owned); border-color: #2a5a52; }
+  .chip.warn { color: var(--amber); border-color: #5c4a22; }
+  .chip.cool { color: var(--dim); }
+  .chip.btn { pointer-events: auto; border-color: #3b535e; color: var(--txt); }
+  .chip.btn:hover { background: #12202a; color: var(--white); }
+  .chip.btn.off { opacity: 0.45; cursor: not-allowed; }
+
+  /* ---- terminal ---- */
+  #term { position: fixed; left: 12px; bottom: 12px; z-index: 4; width: min(800px, calc(100vw - 24px)); background: var(--panel); border: 1px solid var(--line); }
+  #term.focus { border-color: #3b6b63; }
+  #termlog { height: 138px; overflow-y: auto; padding: 8px 10px 4px; scrollbar-width: thin; scrollbar-color: #2c424d transparent; }
+  .l { white-space: pre-wrap; word-break: break-word; }
+  .l.info { color: var(--txt); }
+  .l.good { color: var(--owned); }
+  .l.warn { color: var(--amber); }
+  .l.bad { color: var(--hot); }
+  .l.echo { color: var(--dim); }
+  #termrow { display: flex; align-items: center; gap: 8px; border-top: 1px solid var(--line); padding: 6px 10px; }
+  #prompt { color: var(--owned); white-space: nowrap; }
+  #cmd { flex: 1; min-width: 0; background: transparent; border: 0; outline: 0; color: var(--white); font: inherit; caret-color: var(--owned); }
+  #cmd::placeholder { color: #36474f; }
+
+  /* ---- node action ring ---- */
+  #radial { position: fixed; left: 0; top: 0; width: 0; height: 0; z-index: 5; }
+  #radial .rb { position: absolute; width: 44px; height: 44px; border-radius: 50%; border: 1px solid #3b6b63; background: rgba(8, 14, 17, 0.88);
+    color: var(--owned); font-size: 9px; letter-spacing: 0.5px; padding: 0; }
+  #radial .rb:hover { background: #12302c; color: var(--white); }
+  #radial .rb.off { border-color: var(--line); color: #3a4c55; cursor: not-allowed; }
+  #radial .rb.off:hover { background: rgba(8, 14, 17, 0.94); }
+  #radial .card { position: absolute; left: 124px; top: -34px; width: 250px; padding: 8px 10px; border: 1px solid var(--line); background: var(--panel);
+    white-space: pre-wrap; font-size: 11px; color: var(--txt); pointer-events: none; }
+  #radial.flip .card { left: auto; right: 124px; }
+
+  /* ---- screens ---- */
+  #screen { position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; background: rgba(4, 6, 8, 0.78); }
+  .panel { width: min(640px, 92vw); border: 1px solid var(--line); background: #090e12; padding: 28px 34px 24px; }
+  .panel h1 { margin: 0 0 6px; font-size: 30px; letter-spacing: 6px; color: var(--white); font-weight: normal; }
+  .panel h1.good { color: var(--owned); } .panel h1.bad { color: var(--hot); }
+  .panel .sub { margin: 4px 0; color: var(--dim); }
+  .panel .big { margin: 14px 0 6px; font-size: 40px; color: var(--white); }
+  .panel .how { margin: 16px 0 18px; padding-left: 18px; color: var(--txt); }
+  .panel .how li { margin: 6px 0; }
+  .panel .keys { margin: 18px 0 0; color: #3f525b; font-size: 11px; }
+  .prow { display: flex; gap: 10px; margin-top: 18px; flex-wrap: wrap; }
+  .pbtn { display: flex; gap: 12px; align-items: center; padding: 8px 14px; background: transparent; border: 1px solid #3b535e; color: var(--txt); }
+  .pbtn:hover { background: #12202a; color: var(--white); }
+  .pbtn.primary { border-color: var(--owned); color: var(--owned); }
+  .pbtn.primary:hover { background: #12302c; }
+  .pbtn kbd { font: inherit; font-size: 10px; color: var(--dim); border: 1px solid var(--line); padding: 0 5px; }
+
+  /* ---- F1 inspector ---- */
+  #debug { position: fixed; top: 74px; right: 8px; width: 400px; max-height: calc(100vh - 90px); overflow: auto; z-index: 10; padding: 10px 12px;
+    background: rgba(6, 10, 13, 0.94); border: 1px solid #3b6b63; font-size: 10.5px; line-height: 1.4; }
+  #debug h3 { margin: 0 0 6px; font-size: 12px; color: var(--owned); letter-spacing: 2px; }
+  #debug pre { margin: 0 0 8px; white-space: pre-wrap; font: inherit; color: var(--txt); }
+  #debug .row { display: flex; flex-wrap: wrap; gap: 4px; margin: 6px 0; }
+  #debug .row button { background: transparent; border: 1px solid #3b6b63; color: var(--owned); padding: 1px 6px; font-size: 10px; }
+  #debug .row button:hover { background: var(--owned); color: #07090c; }
+  #debug .slider { display: grid; grid-template-columns: 110px 1fr 44px; gap: 6px; align-items: center; margin: 1px 0; }
+  #debug input[type=range] { width: 100%; accent-color: var(--owned); }
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+<script type="module" src="/src/main.ts"></script>
+</body>
+</html>

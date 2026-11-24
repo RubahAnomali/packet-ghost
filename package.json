@@ -1,0 +1,18 @@
+{
+  "name": "packet-ghost",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "typecheck": "tsc --noEmit",
+    "test": "node scripts/sim-test.mjs",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "@typescript/typescript-win32-x64": "^7.0.2",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.8"
+  }
+}
