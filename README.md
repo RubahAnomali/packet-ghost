@@ -133,5 +133,5 @@ Live FPS, frame and sim time, measured tick rate, seed, generator attempts, acti
 
 - **Playtested by hand.** The author has played the game personally and had friends play it. The automated checks above ran in a Browser pane that throttles `requestAnimationFrame` to about 20 fps, so the bot numbers come from that, and no formal playtest data (win rates, timings) was recorded. The F1 sliders are there for tuning.
 - The bot is deliberately simple (no probing, no pivoting, no route planning around ICE). Human win rates will differ, probably upward on contract 1 and unknown on 3.
-- Audio was not listened to; it is built from the event stream and checked only for not throwing.
+- Audio has been listened to by the author. It is built from the event stream and also checked for not throwing.
 - No touch input, no save data, no settings menu.
